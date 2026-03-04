@@ -14,6 +14,14 @@ export const TYPERACER_ABI = [
   },
   {
     type: "struct",
+    name: "core::integer::u256",
+    members: [
+      { name: "low", type: "core::integer::u128" },
+      { name: "high", type: "core::integer::u128" },
+    ],
+  },
+  {
+    type: "struct",
     name: "typeracer::RaceInfo",
     members: [
       { name: "racer", type: "core::starknet::contract_address::ContractAddress" },
@@ -92,9 +100,60 @@ export const TYPERACER_ABI = [
         outputs: [{ type: "core::integer::u64" }],
         state_mutability: "view",
       },
+      {
+        type: "function",
+        name: "distribute_reward",
+        inputs: [
+          { name: "user", type: "core::starknet::contract_address::ContractAddress" },
+          { name: "race_id", type: "core::integer::u64" },
+        ],
+        outputs: [],
+        state_mutability: "external",
+      },
+      {
+        type: "function",
+        name: "deposit",
+        inputs: [{ name: "amount", type: "core::integer::u256" }],
+        outputs: [],
+        state_mutability: "external",
+      },
+      {
+        type: "function",
+        name: "get_reward_balance",
+        inputs: [],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        type: "function",
+        name: "get_race_rewarded",
+        inputs: [{ name: "race_id", type: "core::integer::u64" }],
+        outputs: [{ type: "core::bool" }],
+        state_mutability: "view",
+      },
+      {
+        type: "function",
+        name: "get_user_total_rewards",
+        inputs: [{ name: "user", type: "core::starknet::contract_address::ContractAddress" }],
+        outputs: [{ type: "core::integer::u256" }],
+        state_mutability: "view",
+      },
+      {
+        type: "function",
+        name: "get_max_races",
+        inputs: [],
+        outputs: [{ type: "core::integer::u32" }],
+        state_mutability: "view",
+      },
     ],
   },
-  { type: "constructor", name: "constructor", inputs: [] },
+  {
+    type: "constructor",
+    name: "constructor",
+    inputs: [
+      { name: "admin", type: "core::starknet::contract_address::ContractAddress" },
+    ],
+  },
   {
     type: "event",
     name: "typeracer::TypeRacerContract::RaceStarted",
@@ -132,12 +191,34 @@ export const TYPERACER_ABI = [
   },
   {
     type: "event",
+    name: "typeracer::TypeRacerContract::RewardDistributed",
+    kind: "struct",
+    members: [
+      { name: "user", type: "core::starknet::contract_address::ContractAddress", kind: "key" },
+      { name: "race_id", type: "core::integer::u64", kind: "data" },
+      { name: "word_count", type: "core::integer::u32", kind: "data" },
+      { name: "amount", type: "core::integer::u256", kind: "data" },
+    ],
+  },
+  {
+    type: "event",
+    name: "typeracer::TypeRacerContract::Deposited",
+    kind: "struct",
+    members: [
+      { name: "depositor", type: "core::starknet::contract_address::ContractAddress", kind: "key" },
+      { name: "amount", type: "core::integer::u256", kind: "data" },
+    ],
+  },
+  {
+    type: "event",
     name: "typeracer::TypeRacerContract::Event",
     kind: "enum",
     variants: [
       { name: "RaceStarted", type: "typeracer::TypeRacerContract::RaceStarted", kind: "nested" },
       { name: "Keystroke", type: "typeracer::TypeRacerContract::Keystroke", kind: "nested" },
       { name: "RaceFinished", type: "typeracer::TypeRacerContract::RaceFinished", kind: "nested" },
+      { name: "RewardDistributed", type: "typeracer::TypeRacerContract::RewardDistributed", kind: "nested" },
+      { name: "Deposited", type: "typeracer::TypeRacerContract::Deposited", kind: "nested" },
     ],
   },
 ] as const;

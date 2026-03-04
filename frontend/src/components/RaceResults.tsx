@@ -5,6 +5,12 @@ interface WpmSample {
   wpm: number;
 }
 
+interface RewardInfo {
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}
+
 interface RaceResultsProps {
   wpm: number;
   accuracy: number;
@@ -17,6 +23,9 @@ interface RaceResultsProps {
   isNewBest: boolean;
   elapsedMs: number;
   wpmHistory: WpmSample[];
+  rewardResult?: RewardInfo | null;
+  racesRemaining: number;
+  strkPerWord: number;
   onRaceAgain: () => void;
   onViewLeaderboard: () => void;
 }
@@ -119,10 +128,14 @@ export default function RaceResults({
   isNewBest,
   elapsedMs,
   wpmHistory,
+  rewardResult,
+  racesRemaining,
+  strkPerWord,
   onRaceAgain,
   onViewLeaderboard,
 }: RaceResultsProps) {
   const elapsedSec = Math.round(elapsedMs / 1000);
+  const rewardAmount = correctWords * strkPerWord;
 
   return (
     <div className="results">
@@ -130,6 +143,37 @@ export default function RaceResults({
       <div className="results-label">words per minute</div>
 
       {isNewBest && <div className="new-best">New Personal Best!</div>}
+
+      {/* Reward Section */}
+      <div className="results-reward" style={{
+        margin: "16px 0",
+        padding: "12px 16px",
+        border: "1px solid rgba(0,255,65,0.3)",
+        borderRadius: 8,
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#00ff41" }}>
+          +{rewardAmount.toFixed(1)} STRK
+        </div>
+        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 4 }}>
+          {correctWords} correct words x {strkPerWord} STRK
+        </div>
+        {rewardResult && rewardResult.success && (
+          <div style={{ fontSize: "0.75rem", color: "#00ff41", marginTop: 8 }}>
+            Reward distributed on-chain
+          </div>
+        )}
+        {rewardResult && !rewardResult.success && (
+          <div style={{ fontSize: "0.75rem", color: "#ff4141", marginTop: 8 }}>
+            Reward failed: {rewardResult.error}
+          </div>
+        )}
+        {!rewardResult && (
+          <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginTop: 8 }}>
+            Distributing reward...
+          </div>
+        )}
+      </div>
 
       <WpmGraph data={wpmHistory} />
 
@@ -178,9 +222,24 @@ export default function RaceResults({
         </div>
       )}
 
+      <div style={{
+        textAlign: "center",
+        margin: "12px 0",
+        color: "var(--text-secondary)",
+        fontSize: "0.85rem",
+      }}>
+        {racesRemaining > 0
+          ? `${racesRemaining} race${racesRemaining === 1 ? "" : "s"} remaining`
+          : "No races remaining"}
+      </div>
+
       <div className="results-actions">
-        <button className="btn btn-large" onClick={onRaceAgain}>
-          Race Again
+        <button
+          className="btn btn-large"
+          onClick={onRaceAgain}
+          disabled={racesRemaining <= 0}
+        >
+          {racesRemaining > 0 ? "Race Again" : "No Races Left"}
         </button>
         <button className="btn btn-secondary" onClick={onViewLeaderboard}>
           Leaderboard

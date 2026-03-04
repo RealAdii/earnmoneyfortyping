@@ -6,6 +6,7 @@ interface WalletStatusProps {
   isAuthenticated: boolean;
   walletAddress: string | null;
   walletReady: boolean;
+  xUsername?: string | null;
   onLogin: () => void;
   onLogout: () => void;
 }
@@ -19,6 +20,7 @@ export default function WalletStatus({
   isAuthenticated,
   walletAddress,
   walletReady,
+  xUsername,
   onLogin,
   onLogout,
 }: WalletStatusProps) {
@@ -30,6 +32,11 @@ export default function WalletStatus({
             <span style={{ color: walletReady ? "var(--text-primary)" : "#ffaa00" }}>
               {walletReady ? "[CONNECTED]" : "[CONNECTING...]"}
             </span>
+            {xUsername && (
+              <span style={{ color: "var(--text-primary)", marginLeft: 8 }}>
+                @{xUsername}
+              </span>
+            )}
             <a
               href={VOYAGER_CONTRACT(walletAddress)}
               target="_blank"

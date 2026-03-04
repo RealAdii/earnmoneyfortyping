@@ -2,10 +2,11 @@
 
 import { useState, useCallback } from "react";
 import { RpcProvider } from "starknet";
-import { CONTRACT_ADDRESS, RPC_URL } from "@/lib/constants";
+import { CONTRACT_ADDRESS, RPC_URL, API_URL } from "@/lib/constants";
 
 export interface LeaderboardEntry {
   address: string;
+  xUsername?: string;
   wpm: number;
   races: number;
 }
@@ -17,6 +18,21 @@ async function callView(fn: string, calldata: string[] = []): Promise<string[]> 
     { contractAddress: CONTRACT_ADDRESS, entrypoint: fn, calldata },
     "latest"
   );
+}
+
+async function fetchXUsernames(addresses: string[]): Promise<Record<string, string>> {
+  try {
+    const res = await fetch(`${API_URL}/api/usernames`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addresses }),
+    });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data.usernames || {};
+  } catch {
+    return {};
+  }
 }
 
 export function useLeaderboard() {
@@ -41,7 +57,6 @@ export function useLeaderboard() {
 
       for (let i = 0; i < Math.min(raceCount, 100); i++) {
         try {
-          // get_race returns: [racer, challenge_id, keystroke_count, start_time, end_time, wpm, accuracy, finished]
           const race = await callView("get_race", ["0x" + i.toString(16)]);
 
           const finished = Number(BigInt(race[7])) === 1;
@@ -62,9 +77,14 @@ export function useLeaderboard() {
         }
       }
 
+      // Fetch X usernames for all addresses
+      const addresses = Array.from(userBests.keys());
+      const usernames = await fetchXUsernames(addresses);
+
       const sorted = Array.from(userBests.entries())
         .map(([address, data]) => ({
           address,
+          xUsername: usernames[address.toLowerCase()],
           wpm: data.wpm,
           races: data.races,
         }))

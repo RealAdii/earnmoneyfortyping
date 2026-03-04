@@ -89,7 +89,9 @@ export default function Leaderboard({ onClose }: LeaderboardProps) {
               <div key={entry.address} className="leaderboard-row">
                 <div className={`rank ${i < 3 ? "top3" : ""}`}>{i + 1}</div>
                 <div className="leaderboard-address">
-                  {truncateAddress(entry.address)}
+                  {entry.xUsername
+                    ? `@${entry.xUsername}`
+                    : truncateAddress(entry.address)}
                 </div>
                 <div className="leaderboard-wpm">{entry.wpm}</div>
                 <div className="leaderboard-races">{entry.races}</div>

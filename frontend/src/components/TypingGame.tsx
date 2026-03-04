@@ -13,6 +13,9 @@ import { useTypingContract } from "@/hooks/use-typing-contract";
 import { generateChallenge, type GeneratedChallenge } from "@/lib/challenges";
 import {
   API_URL,
+  CONTRACT_ADDRESS,
+  RPC_URL,
+  NETWORK,
   GAME_CONFIG,
   STORAGE_KEYS,
 } from "@/lib/constants";
@@ -26,6 +29,7 @@ export default function TypingGame() {
   // Wallet state
   const [wallet, setWallet] = useState<WalletInterface | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [xUsername, setXUsername] = useState<string | null>(null);
   const sdkRef = useRef<StarkSDK | null>(null);
 
   // Game state
@@ -79,6 +83,10 @@ export default function TypingGame() {
     startTimeRef.current = startTime;
   }, [startTime]);
 
+  // Race limit tracking
+  const [userRaceCount, setUserRaceCount] = useState(0);
+  const racesRemaining = GAME_CONFIG.MAX_RACES_PER_USER - userRaceCount;
+
   const {
     startRace,
     recordWord,
@@ -87,10 +95,11 @@ export default function TypingGame() {
     clearLog,
     isStarting,
     isFinishing,
+    rewardResult,
     successCount,
     pendingCount,
     isReady,
-  } = useTypingContract({ wallet });
+  } = useTypingContract({ wallet, getAccessToken });
 
   // ─── Wallet Setup (Privy → Starkzap) ───
   useEffect(() => {
@@ -117,12 +126,16 @@ export default function TypingGame() {
 
         const { id: walletId, publicKey } = walletData.wallet;
 
+        if (walletData.xUsername) {
+          setXUsername(walletData.xUsername);
+        }
+
         localStorage.setItem(STORAGE_KEYS.walletId, walletId);
         localStorage.setItem(STORAGE_KEYS.publicKey, publicKey);
 
         if (!sdkRef.current) {
           sdkRef.current = new StarkSDK({
-            network: "sepolia",
+            network: NETWORK as "sepolia" | "mainnet",
             paymaster: {
               nodeUrl: `${API_URL}/api/paymaster`,
             },
@@ -155,6 +168,37 @@ export default function TypingGame() {
 
     setupWallet();
   }, [ready, authenticated, user?.id, wallet, getAccessToken]);
+
+  // ─── Fetch user race count from chain ───
+  useEffect(() => {
+    if (!walletAddress) return;
+
+    const fetchRaceCount = async () => {
+      try {
+        const { RpcProvider, Contract } = await import("starknet");
+        const provider = new RpcProvider({ nodeUrl: RPC_URL });
+        const contract = new Contract(
+          [
+            {
+              type: "function",
+              name: "get_user_race_count",
+              inputs: [{ name: "user", type: "core::starknet::contract_address::ContractAddress" }],
+              outputs: [{ type: "core::integer::u32" }],
+              state_mutability: "view",
+            },
+          ],
+          CONTRACT_ADDRESS,
+          provider
+        );
+        const count = await contract.get_user_race_count(walletAddress);
+        setUserRaceCount(Number(count));
+      } catch (err) {
+        console.error("Failed to fetch race count:", err);
+      }
+    };
+
+    fetchRaceCount();
+  }, [walletAddress, gameState]); // Re-fetch when game state changes (after finishing)
 
   // ─── Countdown Timer ───
   useEffect(() => {
@@ -374,6 +418,7 @@ export default function TypingGame() {
         isAuthenticated={authenticated}
         walletAddress={walletAddress}
         walletReady={isReady}
+        xUsername={xUsername}
         onLogin={login}
         onLogout={async () => {
           if (wallet) {
@@ -383,6 +428,7 @@ export default function TypingGame() {
           }
           setWallet(null);
           setWalletAddress(null);
+          setXUsername(null);
           sdkRef.current = null;
           localStorage.removeItem(STORAGE_KEYS.walletId);
           localStorage.removeItem(STORAGE_KEYS.walletAddress);
@@ -413,23 +459,36 @@ export default function TypingGame() {
               )}
 
               {authenticated && (
-                <button
-                  className="btn btn-large"
-                  onClick={handleStartRace}
-                  disabled={isStarting || !isReady}
-                >
-                  {isStarting ? (
-                    <>
-                      <span className="spinner" /> Starting Race...
-                    </>
-                  ) : !isReady ? (
-                    <>
-                      <span className="spinner" /> Wallet Loading...
-                    </>
-                  ) : (
-                    "Start Race"
-                  )}
-                </button>
+                <>
+                  <button
+                    className="btn btn-large"
+                    onClick={handleStartRace}
+                    disabled={isStarting || !isReady || racesRemaining <= 0}
+                  >
+                    {isStarting ? (
+                      <>
+                        <span className="spinner" /> Starting Race...
+                      </>
+                    ) : !isReady ? (
+                      <>
+                        <span className="spinner" /> Wallet Loading...
+                      </>
+                    ) : racesRemaining <= 0 ? (
+                      "No Races Left"
+                    ) : (
+                      "Start Race"
+                    )}
+                  </button>
+                  <div style={{
+                    marginTop: 12,
+                    color: "var(--text-secondary)",
+                    fontSize: "0.85rem",
+                  }}>
+                    {racesRemaining > 0
+                      ? `${racesRemaining} of ${GAME_CONFIG.MAX_RACES_PER_USER} races remaining | Earn ${GAME_CONFIG.STRK_PER_WORD} STRK per word`
+                      : "You've used all your races"}
+                  </div>
+                </>
               )}
 
               <div style={{ marginTop: 24 }}>
@@ -527,6 +586,9 @@ export default function TypingGame() {
               isNewBest={isNewBest}
               elapsedMs={elapsed}
               wpmHistory={wpmHistory}
+              rewardResult={rewardResult}
+              racesRemaining={racesRemaining}
+              strkPerWord={GAME_CONFIG.STRK_PER_WORD}
               onRaceAgain={() => {
                 setGameState("idle");
                 setCurrentInput("");

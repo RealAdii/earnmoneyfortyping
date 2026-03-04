@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { CONTRACT_ADDRESS, GAME_CONFIG, VOYAGER_TX } from "@/lib/constants";
+import { CONTRACT_ADDRESS, GAME_CONFIG, VOYAGER_TX, API_URL } from "@/lib/constants";
 
 const { TX_TIMEOUT_MS } = GAME_CONFIG;
 const SUBMIT_INTERVAL_MS = 300; // Min gap between paymaster submissions
@@ -21,17 +21,31 @@ interface QueueItem {
   raceId: string;
 }
 
-interface UseTypingContractOpts {
-  wallet: any;
+interface RewardResult {
+  success: boolean;
+  txHash?: string;
+  error?: string;
+  rewardAmount?: number;
 }
 
-export function useTypingContract({ wallet }: UseTypingContractOpts) {
+interface UseTypingContractOpts {
+  wallet: any;
+  getAccessToken?: () => Promise<string | null>;
+}
+
+export function useTypingContract({ wallet, getAccessToken }: UseTypingContractOpts) {
   const [activeRaceId, setActiveRaceId] = useState<string | null>(null);
   const activeRaceIdRef = useRef<string | null>(null);
   const [txLog, setTxLog] = useState<WordTx[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [rewardResult, setRewardResult] = useState<RewardResult | null>(null);
   const txIdCounter = useRef(0);
+  const getAccessTokenRef = useRef(getAccessToken);
+
+  useEffect(() => {
+    getAccessTokenRef.current = getAccessToken;
+  }, [getAccessToken]);
 
   // Staggered submission queue
   const queueRef = useRef<QueueItem[]>([]);
@@ -176,6 +190,39 @@ export function useTypingContract({ wallet }: UseTypingContractOpts) {
     [addTxEntry, drainQueue]
   );
 
+  const claimReward = useCallback(
+    async (raceId: string, userAddress: string): Promise<RewardResult> => {
+      try {
+        const token = getAccessTokenRef.current
+          ? await getAccessTokenRef.current()
+          : null;
+        if (!token) {
+          return { success: false, error: "Not authenticated" };
+        }
+
+        const res = await fetch(`${API_URL}/api/reward`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ raceId, userAddress }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          return { success: false, error: data.error || "Reward claim failed" };
+        }
+
+        return { success: true, txHash: data.txHash };
+      } catch (err: any) {
+        console.error("Reward claim failed:", err);
+        return { success: false, error: err.message || "Reward claim failed" };
+      }
+    },
+    []
+  );
+
   const finishRace = useCallback(
     async (
       correctChars: number,
@@ -187,6 +234,7 @@ export function useTypingContract({ wallet }: UseTypingContractOpts) {
       const raceId = activeRaceIdRef.current;
       if (!w || !raceId) return null;
       setIsFinishing(true);
+      setRewardResult(null);
 
       // Wait for all in-flight txs to settle
       const waitStart = Date.now();
@@ -213,6 +261,14 @@ export function useTypingContract({ wallet }: UseTypingContractOpts) {
         ]);
 
         await tx.wait();
+
+        // Claim reward via server
+        const userAddress = w.address;
+        if (userAddress) {
+          const reward = await claimReward(raceId, userAddress);
+          setRewardResult(reward);
+        }
+
         setActiveRaceId(null);
         return { hash: tx.hash, explorerUrl: VOYAGER_TX(tx.hash) };
       } catch (err: any) {
@@ -222,12 +278,13 @@ export function useTypingContract({ wallet }: UseTypingContractOpts) {
         setIsFinishing(false);
       }
     },
-    []
+    [claimReward]
   );
 
   const clearLog = useCallback(() => {
     setTxLog([]);
     queueRef.current = [];
+    setRewardResult(null);
   }, []);
 
   return {
@@ -239,6 +296,7 @@ export function useTypingContract({ wallet }: UseTypingContractOpts) {
     clearLog,
     isStarting,
     isFinishing,
+    rewardResult,
     pendingCount: txLog.filter((t) => t.status === "pending").length,
     successCount: txLog.filter((t) => t.status === "success").length,
     isReady: !!wallet,

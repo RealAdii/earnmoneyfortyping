@@ -3,7 +3,7 @@ export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "";
 export const CONTRACT_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
-  "0x017ef3adc7dadf087760e0fdbb13eea65c9cde4c8376b9fbaa306b1b64657ea6";
+  "0x031cd3a42c317d1118f3f4d6e663f6304d8e9c070370eb16e484ab8e3d7d13cb";
 
 export const RPC_URL =
   NETWORK === "mainnet"
@@ -25,6 +25,8 @@ export const GAME_CONFIG = {
   COUNTDOWN_SECONDS: 3,
   RACE_DURATION_SECONDS: 30,
   WPM_SAMPLE_INTERVAL_MS: 2_000,
+  MAX_RACES_PER_USER: 3,
+  STRK_PER_WORD: 0.1,
 };
 
 export const STORAGE_KEYS = {

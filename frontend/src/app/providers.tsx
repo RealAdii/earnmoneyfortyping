@@ -32,7 +32,7 @@ export default function Providers({ children }: { children: ReactNode }) {
           theme: "dark",
           accentColor: "#00ff41",
         },
-        loginMethods: ["email", "google"],
+        loginMethods: ["twitter"],
       }}
     >
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
