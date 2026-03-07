@@ -14,14 +14,14 @@ function getPrivy(): PrivyClient {
 
 export { getPrivy as privy };
 
-export async function verifyToken(authHeader: string | null): Promise<string | null> {
+export async function verifyToken(authHeader: string | null): Promise<{ userId: string | null; error?: string }> {
   const token = authHeader?.replace("Bearer ", "");
-  if (!token) return null;
+  if (!token) return { userId: null, error: "No token provided" };
 
   try {
     const claims = await getPrivy().utils().auth().verifyAccessToken(token);
-    return claims.user_id;
-  } catch {
-    return null;
+    return { userId: claims.user_id };
+  } catch (err: any) {
+    return { userId: null, error: err?.message || String(err) };
   }
 }

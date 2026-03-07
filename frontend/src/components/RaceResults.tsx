@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import confetti from "canvas-confetti";
+
 interface WpmSample {
   time: number;
   wpm: number;
@@ -30,91 +33,51 @@ interface RaceResultsProps {
   onViewLeaderboard: () => void;
 }
 
-function WpmGraph({ data }: { data: WpmSample[] }) {
-  if (data.length < 2) return null;
+function fireConfetti() {
+  const colors = ["#00ff41", "#00cc33", "#33ff66", "#ffffff", "#88ff88", "#ffdd00"];
 
-  const width = 500;
-  const height = 160;
-  const pad = { top: 20, right: 20, bottom: 30, left: 45 };
-  const plotW = width - pad.left - pad.right;
-  const plotH = height - pad.top - pad.bottom;
+  // Big burst from both sides
+  confetti({
+    particleCount: 100,
+    spread: 80,
+    origin: { x: 0.1, y: 0.6 },
+    colors,
+    startVelocity: 40,
+    zIndex: 10000,
+  });
+  confetti({
+    particleCount: 100,
+    spread: 80,
+    origin: { x: 0.9, y: 0.6 },
+    colors,
+    startVelocity: 40,
+    zIndex: 10000,
+  });
 
-  const maxTime = Math.max(...data.map((d) => d.time), 30);
-  const maxWpm = Math.max(...data.map((d) => d.wpm), 10);
+  // Center burst after short delay
+  setTimeout(() => {
+    confetti({
+      particleCount: 60,
+      spread: 120,
+      origin: { x: 0.5, y: 0.35 },
+      colors,
+      startVelocity: 50,
+      zIndex: 10000,
+    });
+  }, 250);
 
-  const toX = (t: number) => pad.left + (t / maxTime) * plotW;
-  const toY = (w: number) => pad.top + plotH - (w / maxWpm) * plotH;
-
-  const pathD = data
-    .map((d, i) => `${i === 0 ? "M" : "L"} ${toX(d.time)} ${toY(d.wpm)}`)
-    .join(" ");
-
-  const areaD =
-    pathD +
-    ` L ${toX(data[data.length - 1].time)} ${toY(0)}` +
-    ` L ${toX(data[0].time)} ${toY(0)} Z`;
-
-  const yTicks = Array.from({ length: 5 }, (_, i) =>
-    Math.round((maxWpm / 4) * i)
-  );
-  const xTicks = [0, 10, 20, 30].filter((t) => t <= maxTime);
-
-  return (
-    <div className="wpm-graph">
-      <div className="wpm-graph-title">WPM Over Time</div>
-      <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ maxWidth: width }}>
-        {yTicks.map((tick) => (
-          <line
-            key={`yg-${tick}`}
-            x1={pad.left}
-            y1={toY(tick)}
-            x2={width - pad.right}
-            y2={toY(tick)}
-            stroke="rgba(0,255,65,0.1)"
-            strokeDasharray="2,4"
-          />
-        ))}
-        <path d={areaD} fill="rgba(0,255,65,0.06)" />
-        <path
-          d={pathD}
-          fill="none"
-          stroke="#00ff41"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {data.map((d, i) => (
-          <circle key={i} cx={toX(d.time)} cy={toY(d.wpm)} r="3" fill="#00ff41" />
-        ))}
-        {yTicks.map((tick) => (
-          <text
-            key={`yl-${tick}`}
-            x={pad.left - 8}
-            y={toY(tick) + 4}
-            textAnchor="end"
-            fill="rgba(0,255,65,0.5)"
-            fontSize="10"
-            fontFamily="monospace"
-          >
-            {tick}
-          </text>
-        ))}
-        {xTicks.map((tick) => (
-          <text
-            key={`xl-${tick}`}
-            x={toX(tick)}
-            y={height - 5}
-            textAnchor="middle"
-            fill="rgba(0,255,65,0.5)"
-            fontSize="10"
-            fontFamily="monospace"
-          >
-            {tick}s
-          </text>
-        ))}
-      </svg>
-    </div>
-  );
+  // Extra burst when reward confirmed
+  setTimeout(() => {
+    confetti({
+      particleCount: 40,
+      spread: 360,
+      origin: { x: 0.5, y: 0.5 },
+      colors,
+      startVelocity: 25,
+      ticks: 80,
+      zIndex: 10000,
+    });
+  }, 600);
 }
 
 export default function RaceResults({
@@ -136,85 +99,107 @@ export default function RaceResults({
 }: RaceResultsProps) {
   const elapsedSec = Math.round(elapsedMs / 1000);
   const rewardAmount = correctWords * strkPerWord;
+  const confettiFired = useRef(false);
+  const rewardConfettiFired = useRef(false);
+
+  // Fire confetti on mount
+  useEffect(() => {
+    if (!confettiFired.current) {
+      confettiFired.current = true;
+      fireConfetti();
+    }
+  }, []);
+
+  // Extra confetti when reward succeeds
+  useEffect(() => {
+    if (rewardResult?.success && !rewardConfettiFired.current) {
+      rewardConfettiFired.current = true;
+      setTimeout(() => fireConfetti(), 300);
+    }
+  }, [rewardResult]);
 
   return (
-    <div className="results">
-      <div className="results-wpm">{wpm}</div>
-      <div className="results-label">words per minute</div>
+    <div className="reward-overlay">
+      {/* WPM Hero */}
+      <div className="reward-wpm">{wpm}</div>
+      <div className="reward-wpm-label">words per minute</div>
 
-      {isNewBest && <div className="new-best">New Personal Best!</div>}
+      {isNewBest && (
+        <div style={{
+          color: "#ffdd00",
+          fontWeight: "bold",
+          fontSize: "1rem",
+          textShadow: "0 0 20px rgba(255,221,0,0.5)",
+          marginBottom: 16,
+          letterSpacing: 2,
+        }}>
+          NEW PERSONAL BEST
+        </div>
+      )}
 
-      {/* Reward Section */}
-      <div className="results-reward" style={{
-        margin: "16px 0",
-        padding: "12px 16px",
-        border: "1px solid rgba(0,255,65,0.3)",
-        borderRadius: 8,
-        textAlign: "center",
-      }}>
-        <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#00ff41" }}>
-          +{rewardAmount.toFixed(1)} STRK
-        </div>
-        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 4 }}>
-          {correctWords} correct words x {strkPerWord} STRK
-        </div>
-        {rewardResult && rewardResult.success && (
-          <div style={{ fontSize: "0.75rem", color: "#00ff41", marginTop: 8 }}>
-            Reward distributed on-chain
-          </div>
-        )}
-        {rewardResult && !rewardResult.success && (
-          <div style={{ fontSize: "0.75rem", color: "#ff4141", marginTop: 8 }}>
-            Reward failed: {rewardResult.error}
-          </div>
-        )}
-        {!rewardResult && (
-          <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginTop: 8 }}>
-            Distributing reward...
-          </div>
-        )}
+      {/* Reward Amount - Big and Bold */}
+      <div className="reward-amount">+{rewardAmount.toFixed(1)} STRK</div>
+      <div className="reward-subtitle">
+        {correctWords} correct words x {strkPerWord} STRK
       </div>
 
-      <WpmGraph data={wpmHistory} />
+      {/* Reward Status */}
+      {rewardResult && rewardResult.success && (
+        <div className="reward-status" style={{ color: "#00ff41" }}>
+          Reward distributed on-chain
+        </div>
+      )}
+      {rewardResult && !rewardResult.success && (
+        <div className="reward-status" style={{ color: "#ff4141" }}>
+          Reward failed: {rewardResult.error}
+        </div>
+      )}
+      {!rewardResult && (
+        <div className="reward-status" style={{
+          color: "var(--text-dim)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}>
+          <span style={{
+            width: 14,
+            height: 14,
+            border: "2px solid rgba(0,255,65,0.2)",
+            borderTopColor: "#00ff41",
+            borderRadius: "50%",
+            display: "inline-block",
+            animation: "spin 0.8s linear infinite",
+          }} />
+          Distributing reward...
+        </div>
+      )}
 
-      <div className="results-grid">
-        <div className="results-stat">
-          <div className="value">{accuracy}%</div>
-          <div className="label">Accuracy</div>
+      {/* Stats Row */}
+      <div className="reward-stats">
+        <div className="reward-stat-item">
+          <div className="reward-stat-value">{accuracy}%</div>
+          <div className="reward-stat-label">Accuracy</div>
         </div>
-        <div className="results-stat">
-          <div className="value">
-            {correctWords}/{totalWords}
-          </div>
-          <div className="label">Correct Words</div>
+        <div className="reward-stat-item">
+          <div className="reward-stat-value">{txSuccess}</div>
+          <div className="reward-stat-label">On-Chain TXs</div>
         </div>
-        <div className="results-stat">
-          <div className="value">{elapsedSec}s</div>
-          <div className="label">Time</div>
+        <div className="reward-stat-item">
+          <div className="reward-stat-value">{elapsedSec}s</div>
+          <div className="reward-stat-label">Time</div>
         </div>
-      </div>
-
-      <div className="results-grid">
-        <div className="results-stat">
-          <div className="value" style={{ color: "var(--text-primary)" }}>
-            {txSuccess}
-          </div>
-          <div className="label">On-Chain TXs</div>
-        </div>
-        <div className="results-stat">
-          <div className="value">{totalWords}</div>
-          <div className="label">Words Typed</div>
-        </div>
-        <div className="results-stat">
-          <div className="value">
+        <div className="reward-stat-item">
+          <div className="reward-stat-value">
             {txTotal > 0 ? Math.round((txSuccess / txTotal) * 100) : 0}%
           </div>
-          <div className="label">TX Success Rate</div>
+          <div className="reward-stat-label">TX Success</div>
         </div>
       </div>
 
+      {/* Explorer Link */}
       {finishExplorerUrl && (
-        <div className="results-tx-link">
+        <div className="reward-explorer">
           Race verified on-chain:{" "}
           <a href={finishExplorerUrl} target="_blank" rel="noopener noreferrer">
             View on Voyager
@@ -222,24 +207,21 @@ export default function RaceResults({
         </div>
       )}
 
-      <div style={{
-        textAlign: "center",
-        margin: "12px 0",
-        color: "var(--text-secondary)",
-        fontSize: "0.85rem",
-      }}>
+      {/* Races Remaining */}
+      <div className="reward-remaining">
         {racesRemaining > 0
           ? `${racesRemaining} race${racesRemaining === 1 ? "" : "s"} remaining`
           : "No races remaining"}
       </div>
 
-      <div className="results-actions">
+      {/* Actions */}
+      <div className="reward-actions">
         <button
           className="btn btn-large"
           onClick={onRaceAgain}
           disabled={racesRemaining <= 0}
         >
-          {racesRemaining > 0 ? "Race Again" : "No Races Left"}
+          {racesRemaining > 0 ? "Play Again" : "No Races Left"}
         </button>
         <button className="btn btn-secondary" onClick={onViewLeaderboard}>
           Leaderboard

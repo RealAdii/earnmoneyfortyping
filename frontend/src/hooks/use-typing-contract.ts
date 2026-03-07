@@ -3,8 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { CONTRACT_ADDRESS, GAME_CONFIG, VOYAGER_TX, API_URL } from "@/lib/constants";
 
-const { TX_TIMEOUT_MS } = GAME_CONFIG;
-const SUBMIT_INTERVAL_MS = 300; // Min gap between paymaster submissions
+const { TX_TIMEOUT_MS, MAX_CONCURRENT_TXS } = GAME_CONFIG;
 
 export interface WordTx {
   id: string;
@@ -47,11 +46,12 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
     getAccessTokenRef.current = getAccessToken;
   }, [getAccessToken]);
 
-  // Staggered submission queue
+  // Parallel fire-and-forget (like Winky)
   const queueRef = useRef<QueueItem[]>([]);
-  const drainRunning = useRef(false);
   const walletRef = useRef(wallet);
   const inflightRef = useRef(0);
+  // Words typed before raceId is available
+  const earlyWordsRef = useRef<number[]>([]);
 
   useEffect(() => {
     walletRef.current = wallet;
@@ -71,30 +71,19 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
     );
   }, []);
 
-  // Drain queue: submit one tx every SUBMIT_INTERVAL_MS (fire-and-forget each)
-  const drainQueue = useCallback(() => {
-    if (drainRunning.current) return;
-    drainRunning.current = true;
-
-    const tick = () => {
-      const item = queueRef.current.shift();
-      if (!item) {
-        drainRunning.current = false;
-        return;
-      }
-
+  const submitTx = useCallback(
+    (item: QueueItem) => {
       const w = walletRef.current;
-      if (!w) {
-        drainRunning.current = false;
-        return;
-      }
+      if (!w) return;
 
-      // Fire-and-forget: submit but don't await
       inflightRef.current++;
 
       const timeout = setTimeout(() => {
         inflightRef.current--;
         updateTxEntry(item.txId, { status: "error", error: "Timeout" });
+        while (inflightRef.current < MAX_CONCURRENT_TXS && queueRef.current.length > 0) {
+          submitTx(queueRef.current.shift()!);
+        }
       }, TX_TIMEOUT_MS);
 
       w.execute([
@@ -108,6 +97,9 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
           clearTimeout(timeout);
           inflightRef.current--;
           updateTxEntry(item.txId, { status: "success", hash: tx.hash });
+          while (inflightRef.current < MAX_CONCURRENT_TXS && queueRef.current.length > 0) {
+            submitTx(queueRef.current.shift()!);
+          }
         })
         .catch((err: any) => {
           clearTimeout(timeout);
@@ -116,14 +108,36 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
             status: "error",
             error: err?.message || "Failed",
           });
+          while (inflightRef.current < MAX_CONCURRENT_TXS && queueRef.current.length > 0) {
+            submitTx(queueRef.current.shift()!);
+          }
         });
+    },
+    [updateTxEntry]
+  );
 
-      // Schedule next submission after interval
-      setTimeout(tick, SUBMIT_INTERVAL_MS);
-    };
+  // enqueueWord must be defined BEFORE startRace and recordWord
+  const enqueueWord = useCallback(
+    (wordNumber: number, raceId: string) => {
+      const txId = `w-${txIdCounter.current++}`;
 
-    tick();
-  }, [updateTxEntry]);
+      addTxEntry({
+        id: txId,
+        status: "pending",
+        wordNumber,
+        timestamp: Date.now(),
+      });
+
+      const item = { txId, wordNumber, raceId };
+
+      if (inflightRef.current < MAX_CONCURRENT_TXS) {
+        submitTx(item);
+      } else {
+        queueRef.current.push(item);
+      }
+    },
+    [addTxEntry, submitTx]
+  );
 
   const startRace = useCallback(
     async (challengeId: number): Promise<string | null> => {
@@ -131,6 +145,7 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
       setIsStarting(true);
       setTxLog([]);
       queueRef.current = [];
+      earlyWordsRef.current = [];
 
       try {
         const tx = await wallet.execute([
@@ -158,6 +173,14 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
         if (!raceId) raceId = "0";
 
         setActiveRaceId(raceId);
+
+        // Replay any words typed before raceId was available
+        const earlyWords = earlyWordsRef.current;
+        earlyWordsRef.current = [];
+        for (const wordNum of earlyWords) {
+          enqueueWord(wordNum, raceId);
+        }
+
         return raceId;
       } catch (err: any) {
         console.error("start_race failed:", err);
@@ -166,28 +189,23 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
         setIsStarting(false);
       }
     },
-    [wallet]
+    [wallet, enqueueWord]
   );
 
   const recordWord = useCallback(
     (wordNumber: number) => {
+      if (!walletRef.current) return;
+
       const raceId = activeRaceIdRef.current;
-      if (!walletRef.current || !raceId) return;
+      if (!raceId) {
+        // Race not started yet — save for later
+        earlyWordsRef.current.push(wordNumber);
+        return;
+      }
 
-      const txId = `w-${txIdCounter.current++}`;
-
-      addTxEntry({
-        id: txId,
-        status: "pending",
-        wordNumber,
-        timestamp: Date.now(),
-      });
-
-      // Enqueue and kick off drain
-      queueRef.current.push({ txId, wordNumber, raceId });
-      drainQueue();
+      enqueueWord(wordNumber, raceId);
     },
-    [addTxEntry, drainQueue]
+    [enqueueWord]
   );
 
   const claimReward = useCallback(

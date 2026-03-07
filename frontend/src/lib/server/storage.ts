@@ -6,14 +6,28 @@ interface UserData {
   xUsername?: string;
 }
 
-let _redis: Redis | null = null;
+// In-memory fallback when Redis is not configured
+const memoryStore = new Map<string, any>();
 
-function getRedis(): Redis {
+const memoryRedis = {
+  get: async <T>(key: string): Promise<T | null> => (memoryStore.get(key) as T) ?? null,
+  set: async (key: string, value: any): Promise<void> => { memoryStore.set(key, value); },
+  mget: async <T>(...keys: string[]): Promise<T> => keys.map((k) => memoryStore.get(k) ?? null) as T,
+};
+
+let _redis: Redis | typeof memoryRedis | null = null;
+
+function getRedis() {
   if (!_redis) {
-    _redis = new Redis({
-      url: process.env.KV_REST_API_URL!,
-      token: process.env.KV_REST_API_TOKEN!,
-    });
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      _redis = new Redis({
+        url: process.env.KV_REST_API_URL,
+        token: process.env.KV_REST_API_TOKEN,
+      });
+    } else {
+      console.warn("[storage] No KV_REST_API_URL configured, using in-memory storage");
+      _redis = memoryRedis;
+    }
   }
   return _redis;
 }
@@ -46,7 +60,7 @@ export async function getXUsername(walletAddress: string): Promise<string | null
 export async function getXUsernames(walletAddresses: string[]): Promise<Record<string, string>> {
   if (walletAddresses.length === 0) return {};
   const keys = walletAddresses.map((a) => xUsernameKey(a));
-  const values = await getRedis().mget<(string | null)[]>(...keys);
+  const values = await (getRedis().mget as any)(...keys) as (string | null)[];
   const result: Record<string, string> = {};
   walletAddresses.forEach((addr, i) => {
     if (values[i]) result[addr.toLowerCase()] = values[i]!;

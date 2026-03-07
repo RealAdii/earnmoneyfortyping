@@ -3,7 +3,7 @@ import { verifyToken } from "@/lib/server/privy";
 import { getUser, setUser } from "@/lib/server/storage";
 
 export async function POST(req: NextRequest) {
-  const userId = await verifyToken(req.headers.get("authorization"));
+  const { userId } = await verifyToken(req.headers.get("authorization"));
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

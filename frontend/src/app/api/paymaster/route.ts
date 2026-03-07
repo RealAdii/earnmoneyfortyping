@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await response.json();
+    if (!response.ok) {
+      console.error("[paymaster] AVNU error:", response.status, JSON.stringify(data));
+    }
     return NextResponse.json(data, { status: response.status });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

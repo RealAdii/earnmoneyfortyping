@@ -58,6 +58,22 @@ export default function TypingGame() {
   const [wpmHistory, setWpmHistory] = useState<
     Array<{ time: number; wpm: number }>
   >([]);
+  const [finalElapsed, setFinalElapsed] = useState(0);
+
+  const [cashFloaters, setCashFloaters] = useState<Array<{ id: number; x: number }>>([]);
+  const cashIdRef = useRef(0);
+
+  const spawnCash = useCallback(() => {
+    const id = cashIdRef.current++;
+    const x = 30 + Math.random() * 40; // random x position 30-70%
+    setCashFloaters((prev) => [...prev, { id, x }]);
+    setTimeout(() => {
+      setCashFloaters((prev) => prev.filter((f) => f.id !== id));
+    }, 1500);
+  }, []);
+
+  const spawnCashRef = useRef(spawnCash);
+  useEffect(() => { spawnCashRef.current = spawnCash; }, [spawnCash]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const gameStateRef = useRef<GameState>("idle");
@@ -65,6 +81,8 @@ export default function TypingGame() {
   const currentWordIndexRef = useRef(0);
   const wordResultsRef = useRef<Array<"correct" | "incorrect" | "pending">>([]);
   const startTimeRef = useRef(0);
+  const currentInputRef = useRef("");
+  const challengeRef = useRef<GeneratedChallenge | null>(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -134,13 +152,20 @@ export default function TypingGame() {
         localStorage.setItem(STORAGE_KEYS.publicKey, publicKey);
 
         if (!sdkRef.current) {
-          sdkRef.current = new StarkSDK({
+          const sdkConfig: any = {
             network: NETWORK as "sepolia" | "mainnet",
-            paymaster: {
+          };
+          if (process.env.NEXT_PUBLIC_AVNU_PAYMASTER === "true") {
+            sdkConfig.paymaster = {
               nodeUrl: `${API_URL}/api/paymaster`,
-            },
-          });
+            };
+          }
+          sdkRef.current = new StarkSDK(sdkConfig);
         }
+
+        const feeMode = (process.env.NEXT_PUBLIC_AVNU_PAYMASTER === "true"
+          ? "sponsored"
+          : "strk_balance") as any;
 
         const result = await sdkRef.current.onboard({
           strategy: "privy",
@@ -152,7 +177,7 @@ export default function TypingGame() {
             }),
           },
           deploy: "if_needed",
-          feeMode: "sponsored",
+          feeMode,
         });
 
         setWallet(result.wallet);
@@ -175,8 +200,8 @@ export default function TypingGame() {
 
     const fetchRaceCount = async () => {
       try {
-        const { RpcProvider, Contract } = await import("starknet");
-        const provider = new RpcProvider({ nodeUrl: RPC_URL });
+        const { RpcProvider, Contract, BlockTag } = await import("starknet");
+        const provider = new RpcProvider({ nodeUrl: RPC_URL, blockIdentifier: "latest" as any });
         const contract = new Contract(
           [
             {
@@ -190,8 +215,8 @@ export default function TypingGame() {
           CONTRACT_ADDRESS,
           provider
         );
-        const count = await contract.get_user_race_count(walletAddress);
-        setUserRaceCount(Number(count));
+        const count = await contract.call("get_user_race_count", [walletAddress], { blockIdentifier: "latest" as any });
+        setUserRaceCount(Number(Array.isArray(count) ? count[0] : count));
       } catch (err) {
         console.error("Failed to fetch race count:", err);
       }
@@ -272,7 +297,9 @@ export default function TypingGame() {
     if (gameStateRef.current === "finished") return;
     setGameState("finished");
 
-    const elapsed = Date.now() - startTimeRef.current;
+    const rawElapsed = Date.now() - startTimeRef.current;
+    const elapsed = Math.min(rawElapsed, GAME_CONFIG.RACE_DURATION_SECONDS * 1000);
+    setFinalElapsed(elapsed);
     const minutes = elapsed / 60000;
     const finalWpm =
       Math.round(completedWordsRef.current / minutes) || 0;
@@ -318,15 +345,20 @@ export default function TypingGame() {
   const handleStartRace = useCallback(async () => {
     const ch = generateChallenge();
     setChallenge(ch);
+    challengeRef.current = ch;
     setCurrentWordIndex(0);
+    currentWordIndexRef.current = 0;
     setCurrentInput("");
+    currentInputRef.current = "";
     setCompletedWords(0);
+    completedWordsRef.current = 0;
     setWordResults(ch.words.map(() => "pending" as const));
     setTimeRemaining(GAME_CONFIG.RACE_DURATION_SECONDS);
     setWpmHistory([]);
     clearLog();
     setFinishResult(null);
     setCurrentWpm(0);
+    setFinalElapsed(0);
     setCountdown(GAME_CONFIG.COUNTDOWN_SECONDS);
     setGameState("countdown");
 
@@ -337,9 +369,13 @@ export default function TypingGame() {
   }, [startRace, clearLog]);
 
   // ─── Handle Keystroke (word-level) ───
+  // Use refs for the hot path to avoid stale closures when typing fast
+  const recordWordRef = useRef(recordWord);
+  useEffect(() => { recordWordRef.current = recordWord; }, [recordWord]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (gameState !== "racing" || !challenge) return;
+      if (gameStateRef.current !== "racing" || !challengeRef.current) return;
 
       if (
         ["Shift", "Control", "Alt", "Meta", "Tab", "Escape", "CapsLock"].includes(
@@ -351,29 +387,37 @@ export default function TypingGame() {
       e.preventDefault();
 
       if (e.key === "Backspace") {
-        setCurrentInput((prev) => prev.slice(0, -1));
+        currentInputRef.current = currentInputRef.current.slice(0, -1);
+        setCurrentInput(currentInputRef.current);
         return;
       }
 
       if (e.key === " ") {
-        if (currentInput.length === 0) return;
+        if (currentInputRef.current.length === 0) return;
 
-        const expectedWord = challenge.words[currentWordIndex];
-        const isCorrect = currentInput === expectedWord;
+        const idx = currentWordIndexRef.current;
+        const ch = challengeRef.current;
+        const expectedWord = ch.words[idx];
+        const isCorrect = currentInputRef.current === expectedWord;
+
+        const newIdx = idx + 1;
+        currentWordIndexRef.current = newIdx;
+        currentInputRef.current = "";
 
         setWordResults((prev) => {
           const next = [...prev];
-          next[currentWordIndex] = isCorrect ? "correct" : "incorrect";
+          next[idx] = isCorrect ? "correct" : "incorrect";
           return next;
         });
 
         if (isCorrect) {
-          const newCompleted = completedWords + 1;
-          setCompletedWords(newCompleted);
-          recordWord(newCompleted);
+          completedWordsRef.current++;
+          setCompletedWords(completedWordsRef.current);
+          recordWordRef.current(completedWordsRef.current);
+          spawnCashRef.current();
         }
 
-        setCurrentWordIndex(currentWordIndex + 1);
+        setCurrentWordIndex(newIdx);
         setCurrentInput("");
         return;
       }
@@ -381,17 +425,10 @@ export default function TypingGame() {
       // Only printable characters
       if (e.key.length !== 1) return;
 
-      setCurrentInput((prev) => prev + e.key);
+      currentInputRef.current += e.key;
+      setCurrentInput(currentInputRef.current);
     },
-    [
-      gameState,
-      challenge,
-      currentInput,
-      currentWordIndex,
-      completedWords,
-      recordWord,
-      doFinishRace,
-    ]
+    [] // No deps — reads everything from refs
   );
 
   // ─── Computed Values ───
@@ -399,7 +436,9 @@ export default function TypingGame() {
     currentWordIndex > 0
       ? Math.round((completedWords / currentWordIndex) * 100)
       : 100;
-  const elapsed = startTime ? Date.now() - startTime : 0;
+  const elapsed = gameState === "finished"
+    ? finalElapsed
+    : startTime ? Date.now() - startTime : 0;
   const isNewBest = currentWpm > previousBest && previousBest > 0;
 
   // ─── Render ───
@@ -407,9 +446,9 @@ export default function TypingGame() {
     <>
       {/* Header */}
       <div className="header">
-        <h1>TypeRacer</h1>
+        <h1 className="site-title">who&apos;s the fastest on CT</h1>
         <div className="subtitle">
-          Every word is a transaction on Starknet
+          Earn STRK for every word you type correctly
         </div>
       </div>
 
@@ -514,6 +553,16 @@ export default function TypingGame() {
           {/* Racing */}
           {gameState === "racing" && challenge && (
             <>
+              {/* Cash floaters */}
+              {cashFloaters.map((f) => (
+                <div
+                  key={f.id}
+                  className="cash-floater"
+                  style={{ left: `${f.x}%` }}
+                >
+                  +0.1 STRK
+                </div>
+              ))}
               <div className="stats-bar">
                 <div className="stat">
                   <div className="stat-label">Time</div>

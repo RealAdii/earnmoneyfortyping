@@ -3,9 +3,9 @@ import { privy as getPrivy, verifyToken } from "@/lib/server/privy";
 import { getUser, setUser, setXUsername } from "@/lib/server/storage";
 
 export async function POST(req: NextRequest) {
-  const userId = await verifyToken(req.headers.get("authorization"));
+  const { userId, error: authError } = await verifyToken(req.headers.get("authorization"));
   if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", detail: authError }, { status: 401 });
   }
 
   // Get X username from Privy user profile

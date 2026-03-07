@@ -6,4 +6,7 @@ dist/
 wallets.json
 contract/target/
 contract/snfoundry.toml
+contract/keys/
+contract/sncast_admin.json
+frontend/.env.vercel
 *.log
