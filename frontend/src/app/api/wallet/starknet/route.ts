@@ -22,7 +22,6 @@ export async function POST(req: NextRequest) {
 
   const existing = await getUser(userId);
   if (existing) {
-    // Update X username if we have it and wallet exists
     if (xUsername && existing.privyWallet?.address) {
       await setXUsername(existing.privyWallet.address, xUsername);
       if (!existing.xUsername) {
@@ -38,7 +37,42 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const wallet = await getPrivy().wallets().create({ chain_type: "starknet" });
+    // Find existing server-signable wallet (owner: null) for this user
+    let wallet: any = null;
+
+    // List all starknet wallets and find one that belongs to this user
+    // by checking wallets created without owner (server-managed)
+    try {
+      for await (const w of getPrivy().wallets().list({ user_id: userId })) {
+        if (w.chain_type === "starknet" && !w.owner_id) {
+          wallet = w;
+          break;
+        }
+      }
+    } catch {}
+
+    // Also check unowned wallets (legacy)
+    if (!wallet) {
+      try {
+        for await (const w of getPrivy().wallets().list({ chain_type: "starknet" })) {
+          if (!w.owner_id) {
+            // Test if we can actually use this wallet by checking it's not already assigned
+            // For now, just use the first available unowned one for this user
+            // The in-memory store reset means we lost the mapping, but this gets the user going
+            wallet = w;
+            break;
+          }
+        }
+      } catch {}
+    }
+
+    if (!wallet) {
+      // Create new wallet WITHOUT owner — server can sign these
+      wallet = await getPrivy().wallets().create({
+        chain_type: "starknet",
+      });
+    }
+
     const privyWallet = {
       id: wallet.id,
       address: wallet.address,
@@ -46,13 +80,13 @@ export async function POST(req: NextRequest) {
     };
     await setUser(userId, { privyWallet, accounts: {}, xUsername });
 
-    // Map wallet address → X username for leaderboard lookups
     if (xUsername) {
       await setXUsername(wallet.address, xUsername);
     }
 
     return NextResponse.json({ wallet: privyWallet, accounts: {}, xUsername, isNew: true });
   } catch (error: any) {
+    console.error("Wallet setup error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

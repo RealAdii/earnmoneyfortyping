@@ -31,6 +31,7 @@ interface RaceResultsProps {
   strkPerWord: number;
   onRaceAgain: () => void;
   onViewLeaderboard: () => void;
+  onSendPrivately?: () => void;
 }
 
 function fireConfetti() {
@@ -96,6 +97,7 @@ export default function RaceResults({
   strkPerWord,
   onRaceAgain,
   onViewLeaderboard,
+  onSendPrivately,
 }: RaceResultsProps) {
   const elapsedSec = Math.round(elapsedMs / 1000);
   const rewardAmount = correctWords * strkPerWord;
@@ -226,6 +228,15 @@ export default function RaceResults({
         <button className="btn btn-secondary" onClick={onViewLeaderboard}>
           Leaderboard
         </button>
+        {rewardResult?.success && onSendPrivately && (
+          <button
+            className="btn btn-secondary"
+            onClick={onSendPrivately}
+            style={{ borderColor: "#9945ff", color: "#9945ff" }}
+          >
+            Send Privately
+          </button>
+        )}
       </div>
     </div>
   );

@@ -8,9 +8,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    console.log("[sign] walletId:", walletId, "hash:", hash.slice(0, 20) + "...");
     const result = await getPrivy().wallets().rawSign(walletId, { params: { hash } });
+    console.log("[sign] Success");
     return NextResponse.json({ signature: result.signature });
   } catch (error: any) {
+    console.error("[sign] Failed:", error.message, "walletId:", walletId);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

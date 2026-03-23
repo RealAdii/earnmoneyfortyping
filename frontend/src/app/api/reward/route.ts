@@ -185,22 +185,8 @@ export async function POST(req: NextRequest) {
 
     console.log("Reward tx submitted:", result.transaction_hash);
 
-    // Wait for confirmation
-    for (let i = 0; i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      try {
-        const receipt = await rpc("starknet_getTransactionReceipt", {
-          transaction_hash: result.transaction_hash,
-        });
-        if (receipt?.finality_status === "ACCEPTED_ON_L2" || receipt?.finality_status === "ACCEPTED_ON_L1") {
-          return NextResponse.json({
-            success: true,
-            txHash: result.transaction_hash,
-          });
-        }
-      } catch {}
-    }
-
+    // Return immediately — don't wait for confirmation
+    // The tx is submitted, the user can track it on Voyager
     return NextResponse.json({
       success: true,
       txHash: result.transaction_hash,

@@ -9,7 +9,9 @@ import TransactionLog from "./TransactionLog";
 import RaceResults from "./RaceResults";
 import Leaderboard from "./Leaderboard";
 import WalletStatus from "./WalletStatus";
+import PrivateSend from "./PrivateSend";
 import { useTypingContract } from "@/hooks/use-typing-contract";
+import { useTongo } from "@/hooks/use-tongo";
 import { generateChallenge, type GeneratedChallenge } from "@/lib/challenges";
 import {
   API_URL,
@@ -118,6 +120,9 @@ export default function TypingGame() {
     pendingCount,
     isReady,
   } = useTypingContract({ wallet, getAccessToken });
+
+  const [showPrivateSend, setShowPrivateSend] = useState(false);
+  const tongo = useTongo({ wallet, walletAddress });
 
   // ─── Wallet Setup (Privy → Starkzap) ───
   useEffect(() => {
@@ -530,13 +535,25 @@ export default function TypingGame() {
                 </>
               )}
 
-              <div style={{ marginTop: 24 }}>
+              <div style={{ marginTop: 24, display: "flex", gap: 12, justifyContent: "center" }}>
                 <button
                   className="btn btn-secondary"
                   onClick={() => setShowLeaderboard(true)}
                 >
                   View Leaderboard
                 </button>
+                {authenticated && walletAddress && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      tongo.reset();
+                      setShowPrivateSend(true);
+                    }}
+                    style={{ borderColor: "#9945ff", color: "#9945ff" }}
+                  >
+                    Send Privately
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -645,6 +662,10 @@ export default function TypingGame() {
                 setCompletedWords(0);
               }}
               onViewLeaderboard={() => setShowLeaderboard(true)}
+              onSendPrivately={() => {
+                tongo.reset();
+                setShowPrivateSend(true);
+              }}
             />
           )}
         </div>
@@ -688,6 +709,19 @@ export default function TypingGame() {
       {/* Leaderboard Modal */}
       {showLeaderboard && (
         <Leaderboard onClose={() => setShowLeaderboard(false)} />
+      )}
+
+      {/* Private Send Modal */}
+      {showPrivateSend && walletAddress && (
+        <PrivateSend
+          walletAddress={walletAddress}
+          maxAmount={gameState === "finished" ? completedWords * GAME_CONFIG.STRK_PER_WORD : 0}
+          step={tongo.step}
+          error={tongo.error}
+          txHash={tongo.txHash}
+          onSend={(recipient, amount) => tongo.sendPrivately(recipient, amount)}
+          onClose={() => setShowPrivateSend(false)}
+        />
       )}
     </>
   );

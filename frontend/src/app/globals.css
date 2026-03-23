@@ -426,6 +426,29 @@ body::after {
   text-decoration: underline;
 }
 
+/* ─── Generic Modal ─── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 30px;
+  width: 90%;
+  max-width: 480px;
+}
+
 /* ─── Leaderboard ─── */
 .leaderboard-overlay {
   position: fixed;

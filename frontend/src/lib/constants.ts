@@ -33,4 +33,14 @@ export const STORAGE_KEYS = {
   walletId: "typeracer_wallet_id",
   walletAddress: "typeracer_wallet_address",
   publicKey: "typeracer_public_key",
+  tongoPrivateKey: "typeracer_tongo_pk",
 };
+
+// Tongo confidential payment contracts (mainnet)
+export const TONGO_CONTRACTS: Record<string, string> = {
+  STRK: "0x3a542d7eb73b3e33a2c54e9827ec17a6365e289ec35ccc94dde97950d9db498",
+  ETH: "0x276e11a5428f6de18a38b7abc1d60abc75ce20aa3a925e20a393fcec9104f89",
+};
+
+// STRK token address on mainnet
+export const STRK_TOKEN_ADDRESS = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";

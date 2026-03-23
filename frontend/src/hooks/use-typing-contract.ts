@@ -254,13 +254,15 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
       setIsFinishing(true);
       setRewardResult(null);
 
-      // Wait for all in-flight txs to settle
-      const waitStart = Date.now();
-      while (
-        (inflightRef.current > 0 || queueRef.current.length > 0) &&
-        Date.now() - waitStart < 30_000
-      ) {
-        await new Promise((r) => setTimeout(r, 300));
+      // Wait for in-flight txs to settle (max 5s, skip if none pending)
+      if (inflightRef.current > 0 || queueRef.current.length > 0) {
+        const waitStart = Date.now();
+        while (
+          (inflightRef.current > 0 || queueRef.current.length > 0) &&
+          Date.now() - waitStart < 5_000
+        ) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
       }
 
       try {
@@ -278,13 +280,15 @@ export function useTypingContract({ wallet, getAccessToken }: UseTypingContractO
           },
         ]);
 
-        await tx.wait();
-
-        // Claim reward via server
+        // Fire reward claim immediately without waiting for finish_race confirmation
         const userAddress = w.address;
         if (userAddress) {
+          // Wait for tx confirmation and claim reward in parallel
+          tx.wait().catch(() => {});
           const reward = await claimReward(raceId, userAddress);
           setRewardResult(reward);
+        } else {
+          await tx.wait();
         }
 
         setActiveRaceId(null);
