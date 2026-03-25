@@ -20,6 +20,7 @@ import {
   NETWORK,
   GAME_CONFIG,
   STORAGE_KEYS,
+  UNLIMITED_RACE_ADDRESSES,
 } from "@/lib/constants";
 
 type GameState = "idle" | "countdown" | "racing" | "finished";
@@ -105,7 +106,8 @@ export default function TypingGame() {
 
   // Race limit tracking
   const [userRaceCount, setUserRaceCount] = useState(0);
-  const racesRemaining = GAME_CONFIG.MAX_RACES_PER_USER - userRaceCount;
+  const isUnlimited = walletAddress ? UNLIMITED_RACE_ADDRESSES.includes(walletAddress.toLowerCase()) : false;
+  const racesRemaining = isUnlimited ? 999 : GAME_CONFIG.MAX_RACES_PER_USER - userRaceCount;
 
   const {
     startRace,

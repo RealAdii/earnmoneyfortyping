@@ -29,6 +29,11 @@ export const GAME_CONFIG = {
   STRK_PER_WORD: 0.1,
 };
 
+// Owner addresses bypass race limit
+export const UNLIMITED_RACE_ADDRESSES = [
+  "0x006ff46ac803364ab77ac91b8eb1490b60da47e14ffd188d02b5bdf3590fa5e5",
+];
+
 export const STORAGE_KEYS = {
   walletId: "typeracer_wallet_id",
   walletAddress: "typeracer_wallet_address",
