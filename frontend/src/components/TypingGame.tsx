@@ -233,32 +233,14 @@ export default function TypingGame() {
     fetchRaceCount();
   }, [walletAddress, gameState]); // Re-fetch when game state changes (after finishing)
 
-  // ─── Fetch user's total earned STRK from game contract ───
+  // ─── Load client-side earnings from localStorage ───
   useEffect(() => {
     if (!walletAddress) return;
-    const fetchEarnings = async () => {
-      try {
-        const { RpcProvider, Contract } = await import("starknet");
-        const provider = new RpcProvider({ nodeUrl: RPC_URL, blockIdentifier: "latest" as any });
-        const contract = new Contract(
-          [{
-            type: "function", name: "get_user_total_rewards",
-            inputs: [{ name: "user", type: "core::starknet::contract_address::ContractAddress" }],
-            outputs: [{ type: "core::integer::u256" }],
-            state_mutability: "view",
-          }],
-          CONTRACT_ADDRESS,
-          provider
-        );
-        const res = await contract.call("get_user_total_rewards", [walletAddress], { blockIdentifier: "latest" as any });
-        const raw = BigInt(Array.isArray(res) ? res[0] : (res as any));
-        setStrkBalance(Number(raw) / 1e18);
-      } catch (err) {
-        console.error("Failed to fetch earnings:", err);
-      }
-    };
-    fetchEarnings();
-  }, [walletAddress, gameState]);
+    const key = `typeracer_earned_${walletAddress.toLowerCase()}`;
+    const stored = localStorage.getItem(key);
+    if (stored) setStrkBalance(parseFloat(stored));
+    else setStrkBalance(0);
+  }, [walletAddress]);
 
   // ─── Countdown Timer ───
   useEffect(() => {
@@ -332,6 +314,16 @@ export default function TypingGame() {
     if (gameStateRef.current === "finished") return;
     setGameState("finished");
 
+    // Update client-side earnings
+    if (walletAddress && completedWordsRef.current > 0) {
+      const key = `typeracer_earned_${walletAddress.toLowerCase()}`;
+      const prev = parseFloat(localStorage.getItem(key) || "0");
+      const earned = completedWordsRef.current * GAME_CONFIG.STRK_PER_WORD;
+      const total = prev + earned;
+      localStorage.setItem(key, total.toFixed(1));
+      setStrkBalance(total);
+    }
+
     const rawElapsed = Date.now() - startTimeRef.current;
     const elapsed = Math.min(rawElapsed, GAME_CONFIG.RACE_DURATION_SECONDS * 1000);
     setFinalElapsed(elapsed);
@@ -374,7 +366,7 @@ export default function TypingGame() {
     if (result) {
       setFinishResult(result);
     }
-  }, [challenge, finishRace]);
+  }, [challenge, finishRace, walletAddress]);
 
   // ─── Start Race ───
   const handleStartRace = useCallback(async () => {
