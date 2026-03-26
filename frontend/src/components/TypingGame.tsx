@@ -531,7 +531,7 @@ export default function TypingGame() {
                     fontSize: "0.85rem",
                   }}>
                     {racesRemaining > 0
-                      ? `${racesRemaining} of ${GAME_CONFIG.MAX_RACES_PER_USER} races remaining | Earn ${GAME_CONFIG.STRK_PER_WORD} STRK per word`
+                      ? "EARN STRK FOR EVERY CORRECT WORD"
                       : "You've used all your races"}
                   </div>
                 </>
