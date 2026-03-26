@@ -16,7 +16,7 @@ export default function NotFound() {
         padding: 24,
       }}
     >
-      <div style={{ fontSize: "4rem", color: "#00ff41", marginBottom: 16 }}>
+      <div style={{ fontSize: "4rem", color: "#fe6c37", marginBottom: 16 }}>
         404
       </div>
       <div style={{ fontSize: "1.2rem", marginBottom: 8 }}>
@@ -30,9 +30,9 @@ export default function NotFound() {
         style={{
           padding: "12px 32px",
           background: "transparent",
-          border: "1px solid #00ff41",
+          border: "1px solid #fe6c37",
           borderRadius: 6,
-          color: "#00ff41",
+          color: "#fe6c37",
           textDecoration: "none",
           fontSize: "0.9rem",
         }}

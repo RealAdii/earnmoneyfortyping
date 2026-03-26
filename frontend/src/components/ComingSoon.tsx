@@ -35,9 +35,9 @@ export default function ComingSoon() {
         // Vary green intensity
         const bright = Math.random();
         if (char === "$" || char === "¢") {
-          ctx!.fillStyle = `rgba(0, 255, 65, ${0.6 + bright * 0.4})`;
+          ctx!.fillStyle = `rgba(254, 108, 55, ${0.6 + bright * 0.4})`;
         } else {
-          ctx!.fillStyle = `rgba(0, 255, 65, ${0.15 + bright * 0.35})`;
+          ctx!.fillStyle = `rgba(254, 108, 55, ${0.15 + bright * 0.35})`;
         }
         ctx!.font = `${fontSize}px "JetBrains Mono", monospace`;
         ctx!.fillText(char, x, y);
@@ -101,10 +101,10 @@ export default function ComingSoon() {
           fontStyle: "italic",
           fontSize: "clamp(3rem, 10vw, 7rem)",
           fontWeight: 400,
-          color: "#00ff41",
+          color: "#fe6c37",
           textTransform: "uppercase",
           letterSpacing: "6px",
-          textShadow: "0 0 6px rgba(0, 255, 65, 0.4)",
+          textShadow: "0 0 6px rgba(254, 108, 55, 0.4)",
           position: "relative",
           lineHeight: 1.1,
         }}>
@@ -114,7 +114,7 @@ export default function ComingSoon() {
         <p style={{
           fontFamily: '"JetBrains Mono", monospace',
           fontSize: "clamp(0.85rem, 2vw, 1.1rem)",
-          color: "rgba(0, 255, 65, 0.6)",
+          color: "rgba(254, 108, 55, 0.6)",
           position: "relative",
           letterSpacing: "2px",
         }}>
@@ -124,7 +124,7 @@ export default function ComingSoon() {
         <div style={{
           fontFamily: '"JetBrains Mono", monospace',
           fontSize: "0.75rem",
-          color: "rgba(0, 255, 65, 0.3)",
+          color: "rgba(254, 108, 55, 0.3)",
           position: "relative",
           marginTop: "2rem",
           letterSpacing: "1px",

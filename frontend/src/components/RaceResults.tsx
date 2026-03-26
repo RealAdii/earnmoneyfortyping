@@ -35,7 +35,7 @@ interface RaceResultsProps {
 }
 
 function fireConfetti() {
-  const colors = ["#00ff41", "#00cc33", "#33ff66", "#ffffff", "#88ff88", "#ffdd00"];
+  const colors = ["#fe6c37", "#d4571f", "#ff8855", "#ffffff", "#ffaa77", "#ffdd00"];
 
   // Big burst from both sides
   confetti({
@@ -147,7 +147,7 @@ export default function RaceResults({
 
       {/* Reward Status */}
       {rewardResult && rewardResult.success && (
-        <div className="reward-status" style={{ color: "#00ff41" }}>
+        <div className="reward-status" style={{ color: "#fe6c37" }}>
           Reward distributed on-chain
         </div>
       )}
@@ -167,8 +167,8 @@ export default function RaceResults({
           <span style={{
             width: 14,
             height: 14,
-            border: "2px solid rgba(0,255,65,0.2)",
-            borderTopColor: "#00ff41",
+            border: "2px solid rgba(254,108,55,0.2)",
+            borderTopColor: "#fe6c37",
             borderRadius: "50%",
             display: "inline-block",
             animation: "spin 0.8s linear infinite",

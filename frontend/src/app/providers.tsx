@@ -30,7 +30,7 @@ export default function Providers({ children }: { children: ReactNode }) {
       config={{
         appearance: {
           theme: "dark",
-          accentColor: "#00ff41",
+          accentColor: "#fe6c37",
         },
         loginMethods: ["twitter"],
       }}

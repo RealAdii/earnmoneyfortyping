@@ -28,7 +28,7 @@ function CopyButton({ text }: { text: string }) {
         background: "transparent",
         border: "1px solid var(--border, #333)",
         borderRadius: 4,
-        color: copied ? "#00ff41" : "var(--text-primary)",
+        color: copied ? "#fe6c37" : "var(--text-primary)",
         cursor: "pointer",
         fontSize: "0.75rem",
         fontFamily: "monospace",
@@ -139,7 +139,7 @@ export default function PrivateSend({
 
         {step === "done" ? (
           <div style={{ textAlign: "center" }}>
-            <div style={{ color: "#00ff41", fontSize: "1.5rem", marginBottom: 12 }}>
+            <div style={{ color: "#fe6c37", fontSize: "1.5rem", marginBottom: 12 }}>
               Sent privately
             </div>
             <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: 16 }}>
@@ -251,8 +251,8 @@ export default function PrivateSend({
                 <span style={{
                   width: 14,
                   height: 14,
-                  border: "2px solid rgba(0,255,65,0.2)",
-                  borderTopColor: "#00ff41",
+                  border: "2px solid rgba(254,108,55,0.2)",
+                  borderTopColor: "#fe6c37",
                   borderRadius: "50%",
                   display: "inline-block",
                   animation: "spin 0.8s linear infinite",
