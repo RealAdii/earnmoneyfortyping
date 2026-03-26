@@ -38,14 +38,14 @@ function getOrCreateTongoKey(): string {
  * Needed because Cartridge RPC doesn't support "pending" block identifier.
  */
 function patchBlockIdentifier(obj: any, depth = 0): void {
-  if (!obj || typeof obj !== "object" || depth > 5) return;
+  if (!obj || typeof obj !== "object" || depth > 8) return;
   if ("blockIdentifier" in obj) {
     obj.blockIdentifier = "latest";
   }
   // Patch nested channel/provider references
-  if (obj.channel) patchBlockIdentifier(obj.channel, depth + 1);
-  if (obj.provider) patchBlockIdentifier(obj.provider, depth + 1);
-  if (obj.providerOrAccount) patchBlockIdentifier(obj.providerOrAccount, depth + 1);
+  for (const key of ["channel", "provider", "providerOrAccount", "ERC20"]) {
+    if (obj[key]) patchBlockIdentifier(obj[key], depth + 1);
+  }
 }
 
 export function useTongo({ wallet, walletAddress }: UseTongoOpts) {
@@ -85,9 +85,13 @@ export function useTongo({ wallet, walletAddress }: UseTongoOpts) {
           provider as any
         );
 
-        // Also patch the internal Contract's provider chain
+        // Patch all internal Contract provider chains deeply
         patchBlockIdentifier((account as any).Tongo);
         patchBlockIdentifier((account as any).provider);
+        // The Tongo contract has a nested ERC20 contract reference
+        if ((account as any).Tongo?.ERC20) {
+          patchBlockIdentifier((account as any).Tongo.ERC20);
+        }
 
         // Convert STRK to wei (18 decimals) then to tongo units
         const amountWei = BigInt(Math.floor(amountStrk * 1e18));
