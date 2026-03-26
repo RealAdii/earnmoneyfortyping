@@ -55,10 +55,19 @@ export function useLeaderboard() {
 
       const userBests = new Map<string, { wpm: number; races: number }>();
 
-      for (let i = 0; i < Math.min(raceCount, 100); i++) {
-        try {
-          const race = await callView("get_race", ["0x" + i.toString(16)]);
-
+      // Fetch ALL races in parallel batches of 20
+      const BATCH_SIZE = 20;
+      for (let start = 0; start < raceCount; start += BATCH_SIZE) {
+        const end = Math.min(start + BATCH_SIZE, raceCount);
+        const batch = [];
+        for (let i = start; i < end; i++) {
+          batch.push(
+            callView("get_race", ["0x" + i.toString(16)]).catch(() => null)
+          );
+        }
+        const results = await Promise.all(batch);
+        for (const race of results) {
+          if (!race) continue;
           const finished = Number(BigInt(race[7])) === 1;
           if (!finished) continue;
 
@@ -72,8 +81,6 @@ export function useLeaderboard() {
           } else {
             userBests.set(address, { wpm, races: 1 });
           }
-        } catch (err) {
-          console.error(`Failed to read race ${i}:`, err);
         }
       }
 
