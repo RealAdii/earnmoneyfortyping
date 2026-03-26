@@ -72,7 +72,7 @@ export default function PrivateSend({
       <div className="modal-content" style={{ maxWidth: 480 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ margin: 0, color: "var(--text-primary)", fontSize: "1.2rem" }}>
-            Send Privately
+            Send Confidential Payment
           </h2>
           {!isBusy && (
             <button
@@ -268,7 +268,7 @@ export default function PrivateSend({
                 disabled={!isValid || isBusy}
                 style={{ flex: 1 }}
               >
-                {isBusy ? "Sending..." : "Send Privately"}
+                {isBusy ? "Sending..." : "Send Confidential Payment"}
               </button>
               {!isBusy && (
                 <button className="btn btn-secondary" onClick={onClose}>

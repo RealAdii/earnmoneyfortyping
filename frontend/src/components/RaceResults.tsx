@@ -234,7 +234,7 @@ export default function RaceResults({
             onClick={onSendPrivately}
             style={{ borderColor: "#9945ff", color: "#9945ff" }}
           >
-            Send Privately
+            Send Confidential Payment
           </button>
         )}
       </div>

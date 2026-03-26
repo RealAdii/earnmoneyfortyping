@@ -553,7 +553,7 @@ export default function TypingGame() {
                     }}
                     style={{ borderColor: "#9945ff", color: "#9945ff" }}
                   >
-                    Send Privately
+                    Send Confidential Payment
                   </button>
                 )}
               </div>
