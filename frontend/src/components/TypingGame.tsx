@@ -233,33 +233,31 @@ export default function TypingGame() {
     fetchRaceCount();
   }, [walletAddress, gameState]); // Re-fetch when game state changes (after finishing)
 
-  // ─── Fetch STRK balance ───
+  // ─── Fetch user's total earned STRK from game contract ───
   useEffect(() => {
     if (!walletAddress) return;
-    const fetchBalance = async () => {
+    const fetchEarnings = async () => {
       try {
         const { RpcProvider, Contract } = await import("starknet");
         const provider = new RpcProvider({ nodeUrl: RPC_URL, blockIdentifier: "latest" as any });
-        const erc20 = new Contract(
+        const contract = new Contract(
           [{
-            type: "function", name: "balanceOf",
-            inputs: [{ name: "account", type: "core::starknet::contract_address::ContractAddress" }],
+            type: "function", name: "get_user_total_rewards",
+            inputs: [{ name: "user", type: "core::starknet::contract_address::ContractAddress" }],
             outputs: [{ type: "core::integer::u256" }],
             state_mutability: "view",
           }],
-          "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+          CONTRACT_ADDRESS,
           provider
         );
-        const bal = await erc20.call("balanceOf", [walletAddress], { blockIdentifier: "latest" as any });
-        const raw = BigInt(Array.isArray(bal) ? bal[0] : (bal as any));
+        const res = await contract.call("get_user_total_rewards", [walletAddress], { blockIdentifier: "latest" as any });
+        const raw = BigInt(Array.isArray(res) ? res[0] : (res as any));
         setStrkBalance(Number(raw) / 1e18);
       } catch (err) {
-        console.error("Failed to fetch STRK balance:", err);
+        console.error("Failed to fetch earnings:", err);
       }
     };
-    fetchBalance();
-    const iv = setInterval(fetchBalance, 15000); // refresh every 15s
-    return () => clearInterval(iv);
+    fetchEarnings();
   }, [walletAddress, gameState]);
 
   // ─── Countdown Timer ───

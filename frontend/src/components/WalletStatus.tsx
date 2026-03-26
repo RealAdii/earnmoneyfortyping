@@ -50,7 +50,7 @@ export default function WalletStatus({
             </a>
             {strkBalance !== null && strkBalance !== undefined && (
               <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
-                {strkBalance.toFixed(2)} STRK
+                Earned: {strkBalance.toFixed(1)} STRK
               </span>
             )}
           </>
